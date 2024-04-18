@@ -15,15 +15,17 @@
 # MacOS: [System HD]/Users/[User Name]/MALightingTechnology/gma3_library/datapools/sequences/
 # Windows: C:\ProgramData\MALightingTechnology\gma3_library\datapools\sequences/
 #
-# Exported file(s) are in xls folder
+# Exported file(s) are in xlsx folder
 #
 import os
 import platform
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as et
 
 import openpyxl
 from openpyxl.styles import Font
 from openpyxl.styles.borders import Border, Side
+
+default_ma3_seq_dir = ""
 
 if platform.system() == "Windows":
     default_ma3_seq_dir = (
@@ -45,7 +47,7 @@ for filename in filenames:
 menu[len(menu) + 1] = "Exit"
 
 
-def menuiras():
+def menushow():
     print("-" * 30)
     print("MENU")
     print("-" * 30)
@@ -62,7 +64,7 @@ thin_border = Border(
 )
 
 while True:
-    menuiras()
+    menushow()
     vfile = int(input("Choose xml file to convert to xlsxs."))
     if vfile > len(menu):
         print("Wrong number.")
@@ -71,12 +73,18 @@ while True:
         exit(0)
     file = default_ma3_seq_dir + menu[vfile]
     print("Chosen XML file: ", file)
-    root = ET.parse(file).getroot()
+    root = et.parse(file).getroot()
     verzio = root.attrib["DataVersion"]
-    # seqnev = root.get("Sequence/Name")
-    # print(seqnev)
-    treeData = [["Num:", "Cue name:", "Note:", "Comment:"]]
-    for type_tag in root.findall("Sequence/Cue"):
+    try:
+        seqnote = root.find(".//Sequence").attrib.get("Note").replace("&#xD;", " ")
+        seqnote = seqnote.replace("\r", " ")
+        seqnote = seqnote.strip("  ")
+    except AttributeError:
+        seqnote = ""
+    treeData = [
+        ["Num:", "Cue name:", "FadeIn:", "FadeOut", "Cue Note:", "Trig.Type/Param:", "Comment:"]
+    ]
+    for type_tag in root.iter("Cue"):
         try:
             sorszam = float(type_tag.get("No").strip())
         except TypeError:
@@ -85,8 +93,24 @@ while True:
             sorszam = 0
         nev = type_tag.get("Name")
         note = type_tag.get("Note")
+        cuefadein = ''
+        cuefadeout = ''
+        for child in type_tag:
+            if "CueInFade" in child.attrib:
+                cuefadein = child.attrib['CueInFade']
+            if "CueOutFade" in child.attrib:
+                cuefadeout = child.attrib['CueOutFade']
+        trigtype = type_tag.get("TrigType")
+        if trigtype is None:
+            trigtype = "Go+"
+        elif trigtype == "Time":
+            ido = type_tag.get("TrigTime")
+            trigtype = f"{trigtype} - {ido}"
+        elif trigtype == "Sound":
+            hang = type_tag.get("TrigSound")
+            trigtype = f"{trigtype} - {hang}"
         comment = ""
-        treeData.append([sorszam, nev, note, comment])
+        treeData.append([sorszam, nev, cuefadein, cuefadeout, note, trigtype, comment])
         # print(sorszam, "--", nev)
     # print(treeData)
     wb = openpyxl.Workbook()
@@ -94,27 +118,35 @@ while True:
     ws.title = menu[vfile][:-4]
     header = Font(size=24, italic=True)
     listtext = Font(size=16)
+    vertext = Font(size=14, bold=True)
+    notetext = Font(size=14, italic=True)
     ws["A1"].font = header
-    ws["A1"] = "Seq name: " + ws.title
-    ws["C1"].font = Font(size=16, bold=True)
-    ws["C1"] = " MA3 program version: " + verzio
-    ws["C2"].font = listtext
-    ws.merge_cells(range_string="A1:B1")
+    ws["A1"] = "Seqence name: " + ws.title
+    ws["A2"].font = vertext
+    ws["A2"] = " MA3 program version: " + verzio
+    ws["A3"].font = header
+    ws["A3"] = "Sequence note: "
+    ws["A4"].font = notetext
+    ws["A4"] = seqnote
+    ws.merge_cells(range_string="A1:D1")
     for tree in treeData:
         ws.append(tree)
-    for row in ws.iter_rows(min_row=2, max_col=4):
+    for row in ws.iter_rows(min_row=5, max_col=7):
         for cell in row:
             cell.border = thin_border
             cell.font = listtext
-    ws.column_dimensions["A"].width = 11
+    ws.column_dimensions["A"].width = 12
     ws.column_dimensions["B"].width = 55
-    ws.column_dimensions["C"].width = 55
-    ws.column_dimensions["D"].width = 55
+    ws.column_dimensions["C"].width = 12
+    ws.column_dimensions["D"].width = 12
+    ws.column_dimensions["E"].width = 55
+    ws.column_dimensions["F"].width = 20
+    ws.column_dimensions["G"].width = 55
     try:
-        wb.save(f"./xls/{ws.title}.xlsx")
+        wb.save(f"./xlsx/{ws.title}.xlsx")
     except FileNotFoundError:
-        print("xls directory not found, so try to create.")
-        os.makedirs("./xls")
-        wb.save(f"./xls/{ws.title}.xlsx")
+        print("xls directory not found, try to create.")
+        os.makedirs("./xlsx")
+        wb.save(f"./xlsx/{ws.title}.xlsx")
     wb.close()
     print("Writing file done.\n Restarting")
