@@ -72,7 +72,7 @@ while True:
     elif vfile == len(menu):
         exit(0)
     file = default_ma3_seq_dir + menu[vfile]
-    print("Chosen XML file: ", file)
+    print("XML file: ", file)
     root = et.parse(file).getroot()
     verzio = root.attrib["DataVersion"]
     try:
@@ -111,8 +111,7 @@ while True:
             trigtype = f"{trigtype} - {hang}"
         comment = ""
         treeData.append([sorszam, nev, cuefadein, cuefadeout, note, trigtype, comment])
-        # print(sorszam, "--", nev)
-    # print(treeData)
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = menu[vfile][:-4]
@@ -145,7 +144,7 @@ while True:
     try:
         wb.save(f"./xlsx/{ws.title}.xlsx")
     except FileNotFoundError:
-        print("xls directory not found, try to create.")
+        print("xlsx directory not found, try to create it.")
         os.makedirs("./xlsx")
         wb.save(f"./xlsx/{ws.title}.xlsx")
     wb.close()
