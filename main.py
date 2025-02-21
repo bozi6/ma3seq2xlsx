@@ -32,8 +32,9 @@ if platform.system() == "Windows":
         "C:\\ProgramData\\MALightingTechnology\\gma3_library\\datapools\\sequences\\"
     )
 elif platform.system() == "Darwin":
+    homedir = os.path.expanduser("~")
     default_ma3_seq_dir = (
-        "/Users/mnte/MALightingTechnology/gma3_library/datapools/sequences/"
+        f'{homedir}/MALightingTechnology/gma3_library/datapools/sequences/'3
     )
 
 filenames = os.listdir(default_ma3_seq_dir)
