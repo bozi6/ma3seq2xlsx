@@ -25,19 +25,23 @@ import openpyxl
 from openpyxl.styles import Font
 from openpyxl.styles.borders import Border, Side
 
-default_ma3_seq_dir = ""
-
 if platform.system() == "Windows":
-    default_ma3_seq_dir = (
+    DEFAULT_MA3_SEQ_DIR = (
         "C:\\ProgramData\\MALightingTechnology\\gma3_library\\datapools\\sequences\\"
     )
 elif platform.system() == "Darwin":
     homedir = os.path.expanduser("~")
-    default_ma3_seq_dir = (
+    DEFAULT_MA3_SEQ_DIR = (
         f'{homedir}/MALightingTechnology/gma3_library/datapools/sequences/'
     )
+else:
+    DEFAULT_MA3_SEQ_DIR = ""
 
-filenames = os.listdir(default_ma3_seq_dir)
+if not os.path.isdir(DEFAULT_MA3_SEQ_DIR):
+    print(f"Error: Directory '{DEFAULT_MA3_SEQ_DIR}' does not exist or is inaccessible.")
+    sys.exit(1)
+
+filenames = os.listdir(DEFAULT_MA3_SEQ_DIR)
 menu = {}
 menunum = 0
 for filename in filenames:
@@ -49,6 +53,18 @@ menu[len(menu) + 1] = "Exit"
 
 
 def menushow():
+    """
+    Displays a formatted menu to the console.
+
+    The function prints a menu header, followed by a list of menu items
+    and their corresponding descriptions. The menu items are retrieved
+    from the global `menu` dictionary, where the keys represent the
+    menu options and the values represent their descriptions.
+
+    Note:
+        Ensure that the `menu` dictionary is defined and populated
+        before calling this function to avoid errors.
+    """
     print("-" * 30)
     print("MENU")
     print("-" * 30)
@@ -61,61 +77,73 @@ thin_border = Border(
     left=Side(style="thin"),
     right=Side(style="thin"),
     top=Side(style="thin"),
-    bottom=Side(style="thin"),
-)
+    bottom=Side(style="thin"))
 
-while True:
-    menushow()
+try:
     vfile = int(input("Choose xml file to convert to xlsxs."))
-    if vfile > len(menu):
-        print("Wrong number.")
+except ValueError:
+    print("Invalid input. Please enter a number.")
+
+running = True
+while running:
+    menushow()
+    try:
+        vfile = int(input("Choose xml file to convert to xlsxs."))
+        if vfile > len(menu):
+            print("Invalid selection. Please choose a valid menu option.")
+            continue
+        if vfile == len(menu):
+            running = False
+            break
+    except ValueError:
+        print("Invalid input. Please enter a number.")
         continue
-    elif vfile == len(menu):
-        exit(0)
-    file = default_ma3_seq_dir + menu[vfile]
+    file = DEFAULT_MA3_SEQ_DIR + menu[vfile]
     print("XML file: ", file)
     root = et.parse(file).getroot()
     verzio = root.attrib["DataVersion"]
-    try:
-        seqnote = root.find(".//Sequence").attrib.get("Note").replace("&#xD;", " ")
+    seq_element = root.find(".//Sequence")
+    if seq_element is not None and "Note" in seq_element.attrib:
+        seqnote = seq_element.attrib["Note"].replace("&#xD;", " ")
         seqnote = seqnote.replace("\r", " ")
         seqnote = seqnote.strip("  ")
-    except AttributeError:
+    else:
         seqnote = ""
     treeData = [
         ["Num:", "Cue name:", "FadeIn:", "FadeOut", "Cue Note:", "Trig.Type/Param:", "Comment:"]
     ]
-    for type_tag in root.iter("Cue"):
+    def process_cue(cue):
         try:
-            sorszam = float(type_tag.get("No").strip())
-        except TypeError:
+            sorszam = float(cue.get("No").strip())
+        except (TypeError, AttributeError):
             sorszam = 0
-        except AttributeError:
-            sorszam = 0
-        nev = type_tag.get("Name")
-        note = type_tag.get("Note")
+        nev = cue.get("Name")
+        note = cue.get("Note")
         cuefadein = ''
         cuefadeout = ''
-        for child in type_tag:
+        for child in cue:
             if "CueInFade" in child.attrib:
                 cuefadein = child.attrib['CueInFade']
             if "CueOutFade" in child.attrib:
                 cuefadeout = child.attrib['CueOutFade']
-        trigtype = type_tag.get("TrigType")
+        trigtype = cue.get("TrigType")
         if trigtype is None:
             trigtype = "Go+"
         elif trigtype == "Time":
-            ido = type_tag.get("TrigTime")
+            ido = cue.get("TrigTime")
             trigtype = f"{trigtype} - {ido}"
         elif trigtype == "Sound":
-            hang = type_tag.get("TrigSound")
+            hang = cue.get("TrigSound")
             trigtype = f"{trigtype} - {hang}"
         comment = ""
-        treeData.append([sorszam, nev, cuefadein, cuefadeout, note, trigtype, comment])
+        return [sorszam, nev, cuefadein, cuefadeout, note, trigtype, comment]
+
+    for type_tag in root.iter("Cue"):
+        treeData.append(process_cue(type_tag))
 
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = menu[vfile][:-4]
+    ws.title = os.path.splitext(menu[vfile])[0]
     header = Font(size=24, italic=True)
     listtext = Font(size=16)
     vertext = Font(size=14, bold=True)
@@ -127,7 +155,7 @@ while True:
     ws["A3"].font = header
     ws["A3"] = "Sequence note: "
     ws["A4"].font = notetext
-    ws["A4"] = seqnote
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=4)
     ws.merge_cells(range_string="A1:D1")
     for tree in treeData:
         ws.append(tree)
@@ -141,12 +169,11 @@ while True:
     ws.column_dimensions["D"].width = 12
     ws.column_dimensions["E"].width = 55
     ws.column_dimensions["F"].width = 20
-    ws.column_dimensions["G"].width = 55
-    try:
-        wb.save(f"./xlsx/{ws.title}.xlsx")
-    except FileNotFoundError:
-        print("xlsx directory not found, try to create it.")
-        os.makedirs("./xlsx")
-        wb.save(f"./xlsx/{ws.title}.xlsx")
+    xlsx_dir = "./xlsx"
+    if not os.path.exists(xlsx_dir):
+        print("xlsx directory not found, creating it.")
+        os.makedirs(xlsx_dir)
+    wb.save(f"{xlsx_dir}/{ws.title}.xlsx")
+    wb.save(f"./xlsx/{ws.title}.xlsx")
     wb.close()
     print("Writing file done.\n Restarting")
