@@ -39,7 +39,7 @@ else:
 
 if not os.path.isdir(DEFAULT_MA3_SEQ_DIR):
     print(f"Error: Directory '{DEFAULT_MA3_SEQ_DIR}' does not exist or is inaccessible.")
-    sys.exit(1)
+    exit(1)
 
 filenames = os.listdir(DEFAULT_MA3_SEQ_DIR)
 menu = {}
