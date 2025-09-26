@@ -56,16 +56,13 @@ def process_xml_file(file_path, filename):
     """Process XML file and return sequence data."""
     root = et.parse(file_path).getroot()
     version = root.attrib.get("DataVersion", "Unknown")
-
     sequence_element = root.find(".//Sequence")
     if sequence_element is not None and "Note" in sequence_element.attrib:
         sequence_note = sequence_element.attrib["Note"].replace("&#xD;", " ").strip()
     else:
         sequence_note = ""
-
     header = [["Num:", "Cue name:", "FadeIn:", "FadeOut", "Cue Note:", "Trig.Type/Param:", "Comment:"]]
     cues = [process_cue(cue) for cue in root.iter("Cue")]
-
     return header + cues, version, sequence_note, os.path.splitext(filename)[0]
 
 
