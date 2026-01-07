@@ -4,8 +4,9 @@
     <content url="file://$MODULE_DIR$">
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
       <excludeFolder url="file://$MODULE_DIR$/xlsx" />
+      <excludeFolder url="file://$MODULE_DIR$/socket/.venv" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.13 (hello-world)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.14 (ma3seq2xlsx)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>
